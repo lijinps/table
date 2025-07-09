@@ -1,9 +1,28 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import DataTable from "../components/DataTable";
+import VisualModal from "../components/VisualModal";
+import { sampleJsonData } from "@/data/sampleData";
+
+interface ColumnConfig {
+  path: string;
+  columnName: string;
+}
+
+interface Booking {
+  id: string;
+  created: string;
+  testDate: string;
+  arrival: string;
+  duration: string;
+  createdBy: string;
+  customer: string;
+  phone: string;
+  email: string;
+}
 
 const bookings = [
   {
@@ -63,21 +82,154 @@ const bookings = [
   },
 ];
 
-const columns = [
-  { key: "id" as const, label: "Booking ID" },
-  { key: "created" as const, label: "Created Date" },
-  { key: "testDate" as const, label: "Test Date & Time" },
-  { key: "arrival" as const, label: "Arrival Time" },
-  { key: "duration" as const, label: "Expected Test Duration" },
-  { key: "createdBy" as const, label: "Created By" },
-  { key: "customer" as const, label: "Customer Name" },
-  { key: "phone" as const, label: "Phone" },
-  { key: "email" as const, label: "Email" },
-];
+// Helper function to get nested value from object using path
+function getNestedValue(obj: any, path: string): any {
+  return path.split(".").reduce((current, key) => {
+    return current && current[key] !== undefined ? current[key] : null;
+  }, obj);
+}
+
+// Helper function to create table data from sample data using saved config
+function createTableDataFromConfig(
+  sampleData: any[],
+  savedConfigs: ColumnConfig[]
+): any[] {
+  console.log("Creating table data from config:", { sampleData, savedConfigs });
+
+  if (savedConfigs.length === 0) {
+    console.log("No saved configs, returning empty array");
+    return [];
+  }
+
+  const result = sampleData.map((item, index) => {
+    const row: any = {};
+    savedConfigs.forEach((config) => {
+      const value = getNestedValue(item, config.path);
+      row[config.columnName] = value;
+      console.log(`Extracted ${config.path} -> ${config.columnName}:`, value);
+    });
+    console.log("Created row:", row);
+    return row;
+  });
+
+  console.log("Final table data:", result);
+  return result;
+}
 
 export default function Home() {
+  const [isVisualModalOpen, setIsVisualModalOpen] = useState(false);
+  const [savedConfigs, setSavedConfigs] = useState<ColumnConfig[]>([]);
+  const [tableData, setTableData] = useState<any[]>([]);
+  const [columns, setColumns] = useState<any[]>([]);
+
+  // Load saved configurations and create table data
+  useEffect(() => {
+    console.log("Loading saved configurations...");
+    const saved = localStorage.getItem("columnConfigs");
+    console.log("Saved config from localStorage:", saved);
+
+    if (saved) {
+      try {
+        const configs = JSON.parse(saved);
+        console.log("Parsed configs:", configs);
+        setSavedConfigs(configs);
+
+        // Create columns from saved config
+        const dynamicColumns = configs.map((config: ColumnConfig) => ({
+          key: config.columnName,
+          label: config.columnName,
+        }));
+        console.log("Created dynamic columns:", dynamicColumns);
+        setColumns(dynamicColumns);
+
+        // Create table data from sample data using saved config
+        const dynamicData = createTableDataFromConfig(sampleJsonData, configs);
+        console.log("Setting table data:", dynamicData);
+        setTableData(dynamicData);
+      } catch (error) {
+        console.error("Error loading saved configurations:", error);
+        // Fallback to default data
+        console.log("Falling back to default data");
+        setTableData(bookings);
+        setColumns([
+          { key: "id" as const, label: "Booking ID" },
+          { key: "created" as const, label: "Created Date" },
+          { key: "testDate" as const, label: "Test Date & Time" },
+          { key: "arrival" as const, label: "Arrival Time" },
+          { key: "duration" as const, label: "Expected Test Duration" },
+          { key: "createdBy" as const, label: "Created By" },
+          { key: "customer" as const, label: "Customer Name" },
+          { key: "phone" as const, label: "Phone" },
+          { key: "email" as const, label: "Email" },
+        ]);
+      }
+    } else {
+      // No saved config, use default data
+      console.log("No saved config found, using default data");
+      setTableData(bookings);
+      setColumns([
+        { key: "id" as const, label: "Booking ID" },
+        { key: "created" as const, label: "Created Date" },
+        { key: "testDate" as const, label: "Test Date & Time" },
+        { key: "arrival" as const, label: "Arrival Time" },
+        { key: "duration" as const, label: "Expected Test Duration" },
+        { key: "createdBy" as const, label: "Created By" },
+        { key: "customer" as const, label: "Customer Name" },
+        { key: "phone" as const, label: "Phone" },
+        { key: "email" as const, label: "Email" },
+      ]);
+    }
+  }, []);
+
+  // Listen for changes in localStorage to update table when config is saved
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const saved = localStorage.getItem("columnConfigs");
+      if (saved) {
+        try {
+          const configs = JSON.parse(saved);
+          setSavedConfigs(configs);
+
+          // Create columns from saved config
+          const dynamicColumns = configs.map((config: ColumnConfig) => ({
+            key: config.columnName,
+            label: config.columnName,
+          }));
+          setColumns(dynamicColumns);
+
+          // Create table data from sample data using saved config
+          const dynamicData = createTableDataFromConfig(
+            sampleJsonData,
+            configs
+          );
+          setTableData(dynamicData);
+        } catch (error) {
+          console.error("Error loading saved configurations:", error);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    // Also listen for custom event when config is saved in the same window
+    window.addEventListener("columnConfigSaved", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("columnConfigSaved", handleStorageChange);
+    };
+  }, []);
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f7f8fa" }}>
+      {(() => {
+        console.log(
+          "Rendering with tableData:",
+          tableData,
+          "columns:",
+          columns
+        );
+        return null;
+      })()}
       <Sidebar />
       <main
         style={{
@@ -88,8 +240,15 @@ export default function Home() {
           minWidth: 0,
         }}
       >
-        <Header />
-        <DataTable bookings={bookings} columns={columns} />
+        <Header onSettingsClick={() => setIsVisualModalOpen(true)} />
+
+        <DataTable data={tableData} columns={columns} />
+
+        {/* Visual Modal */}
+        <VisualModal
+          isOpen={isVisualModalOpen}
+          onClose={() => setIsVisualModalOpen(false)}
+        />
       </main>
     </div>
   );

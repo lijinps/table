@@ -2,26 +2,14 @@
 
 import React, { useState, useRef, useEffect } from "react";
 
-interface Booking {
-  id: string;
-  created: string;
-  testDate: string;
-  arrival: string;
-  duration: string;
-  createdBy: string;
-  customer: string;
-  phone: string;
-  email: string;
-}
-
-interface Column {
-  key: keyof Booking;
+interface Column<T> {
+  key: keyof T;
   label: string;
 }
 
-interface DataTableProps {
-  bookings: Booking[];
-  columns: Column[];
+interface DataTableProps<T> {
+  data: T[];
+  columns: Column<T>[];
 }
 
 const MIN_WIDTH = 80;
@@ -29,8 +17,13 @@ const MAX_WIDTH = 600;
 const STORAGE_KEY_WIDTHS = "datatable_colwidths";
 const STORAGE_KEY_ORDER = "datatable_colorder";
 
-export default function DataTable({ bookings, columns }: DataTableProps) {
-  const [sortKey, setSortKey] = useState<keyof Booking>("id");
+export default function DataTable<T extends Record<string, any>>({
+  data,
+  columns,
+}: DataTableProps<T>) {
+  const [sortKey, setSortKey] = useState<keyof T>(
+    columns[0]?.key || ({} as keyof T)
+  );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [colWidths, setColWidths] = useState<number[]>(
     Array(columns.length).fill(160)
@@ -113,20 +106,46 @@ export default function DataTable({ bookings, columns }: DataTableProps) {
     }
   }, [colOrder, isClient]);
 
-  function sortData(
-    data: Booking[],
-    sortKey: keyof Booking,
-    direction: "asc" | "desc"
-  ) {
+  function sortData(data: T[], sortKey: keyof T, direction: "asc" | "desc") {
     const sorted = [...data].sort((a, b) => {
-      if (a[sortKey] < b[sortKey]) return direction === "asc" ? -1 : 1;
-      if (a[sortKey] > b[sortKey]) return direction === "asc" ? 1 : -1;
-      return 0;
+      const aVal = a[sortKey];
+      const bVal = b[sortKey];
+
+      // Handle different data types
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return direction === "asc"
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return direction === "asc" ? aVal - bVal : bVal - aVal;
+      }
+
+      if (
+        aVal &&
+        bVal &&
+        typeof aVal === "object" &&
+        typeof bVal === "object" &&
+        "getTime" in aVal &&
+        "getTime" in bVal
+      ) {
+        return direction === "asc"
+          ? (aVal as Date).getTime() - (bVal as Date).getTime()
+          : (bVal as Date).getTime() - (aVal as Date).getTime();
+      }
+
+      // Fallback to string comparison
+      const aStr = String(aVal || "");
+      const bStr = String(bVal || "");
+      return direction === "asc"
+        ? aStr.localeCompare(bStr)
+        : bStr.localeCompare(aStr);
     });
     return sorted;
   }
 
-  const handleSort = (key: keyof Booking) => {
+  const handleSort = (key: keyof T) => {
     if (sortKey === key) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
@@ -206,7 +225,7 @@ export default function DataTable({ bookings, columns }: DataTableProps) {
     pendingWidth.current = null;
   };
 
-  const sortedBookings = sortData(bookings, sortKey, sortDirection);
+  const sortedData = sortData(data, sortKey, sortDirection);
 
   return (
     <div
@@ -241,16 +260,17 @@ export default function DataTable({ bookings, columns }: DataTableProps) {
               const isLast = idx === colOrder.length - 1;
               return (
                 <th
-                  key={col.key}
+                  key={col.key as string}
                   draggable={!isResizing}
                   onDragStart={(e) => onDragStart(idx, e)}
                   onDragOver={(e) => onDragOver(idx, e)}
                   onDrop={() => onDrop(idx)}
+                  onClick={() => handleSort(col.key)}
                   style={{
                     padding: "14px 8px",
                     border: "1px solid #e5e7eb",
                     fontWeight: 600,
-                    cursor: !isResizing ? "move" : "default",
+                    cursor: !isResizing ? "pointer" : "default",
                     userSelect: "none",
                     textAlign: "left",
                     position: "relative",
@@ -267,6 +287,12 @@ export default function DataTable({ bookings, columns }: DataTableProps) {
                     }}
                   >
                     <span>{col.label}</span>
+                    {/* Sort indicator */}
+                    {sortKey === col.key && (
+                      <span style={{ fontSize: 12 }}>
+                        {sortDirection === "asc" ? "↑" : "↓"}
+                      </span>
+                    )}
                     {/* Resize handle */}
                     <div
                       onMouseDown={(e) => onResizeMouseDown(e, colIdx)}
@@ -325,23 +351,32 @@ export default function DataTable({ bookings, columns }: DataTableProps) {
           </tr>
         </thead>
         <tbody>
-          {sortedBookings.map((b, i) => (
-            <tr key={b.id + i} style={{ borderBottom: "1px solid #f0f0f0" }}>
+          {sortedData.map((row, i) => (
+            <tr key={i} style={{ borderBottom: "1px solid #f0f0f0" }}>
               {colOrder.map((colIdx) => {
                 const col = columns[colIdx];
+                const value = row[col.key];
                 return (
                   <td
-                    key={col.key}
+                    key={col.key as string}
                     style={{
                       padding: "12px 8px",
                       border: "1px solid #e5e7eb",
-                      whiteSpace: col.key === "email" ? "nowrap" : undefined,
+                      whiteSpace:
+                        typeof value === "string" && value.length > 50
+                          ? "nowrap"
+                          : undefined,
                       textOverflow:
-                        col.key === "email" ? "ellipsis" : undefined,
-                      overflow: col.key === "email" ? "hidden" : undefined,
+                        typeof value === "string" && value.length > 50
+                          ? "ellipsis"
+                          : undefined,
+                      overflow:
+                        typeof value === "string" && value.length > 50
+                          ? "hidden"
+                          : undefined,
                     }}
                   >
-                    {b[col.key]}
+                    {value !== null && value !== undefined ? String(value) : ""}
                   </td>
                 );
               })}

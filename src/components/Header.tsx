@@ -1,6 +1,10 @@
 import React from "react";
 
-export default function Header() {
+interface HeaderProps {
+  onSettingsClick?: () => void;
+}
+
+export default function Header({ onSettingsClick }: HeaderProps) {
   return (
     <div
       style={{
@@ -12,14 +16,30 @@ export default function Header() {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>
             Test Bookings
           </h1>
-          <div style={{ color: "#7b7b93", fontSize: 14 }}>
-            <span>35 Total</span> <span style={{ margin: "0 8px" }}>•</span>{" "}
-            <span>Updated 11 Minutes Ago</span>
-          </div>
+          <button
+            onClick={onSettingsClick}
+            style={{
+              border: "1px solid #e5e7eb",
+              background: "#fff",
+              borderRadius: 6,
+              padding: 8,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            title="Configure Columns"
+          >
+            <span style={{ fontSize: 18 }}>⚙️</span>
+          </button>
+        </div>
+        <div style={{ color: "#7b7b93", fontSize: 14 }}>
+          <span>35 Total</span> <span style={{ margin: "0 8px" }}>•</span>{" "}
+          <span>Updated 11 Minutes Ago</span>
         </div>
         <button
           style={{
