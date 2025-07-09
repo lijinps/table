@@ -21,15 +21,37 @@ export default function DataTable<T extends Record<string, any>>({
   data,
   columns,
 }: DataTableProps<T>) {
+  // Safety check for empty or invalid columns
+  if (!columns || columns.length === 0) {
+    return (
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 0,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+          padding: "32px",
+          textAlign: "center",
+          color: "#6b7280",
+        }}
+      >
+        No columns configured. Please configure columns using the settings
+        button.
+      </div>
+    );
+  }
+
+  // Filter out any invalid columns
+  const validColumns = columns.filter((col) => col && col.key && col.label);
+
   const [sortKey, setSortKey] = useState<keyof T>(
-    columns[0]?.key || ({} as keyof T)
+    validColumns[0]?.key || ({} as keyof T)
   );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [colWidths, setColWidths] = useState<number[]>(
-    Array(columns.length).fill(160)
+    Array(validColumns.length).fill(160)
   );
   const [colOrder, setColOrder] = useState<number[]>(
-    Array.from({ length: columns.length }, (_, i) => i)
+    Array.from({ length: validColumns.length }, (_, i) => i)
   );
   const [showDropdown, setShowDropdown] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -53,7 +75,7 @@ export default function DataTable<T extends Record<string, any>>({
     if (savedWidths) {
       try {
         const parsed = JSON.parse(savedWidths);
-        if (Array.isArray(parsed) && parsed.length === columns.length) {
+        if (Array.isArray(parsed) && parsed.length === validColumns.length) {
           setColWidths(parsed);
         }
       } catch {}
@@ -64,12 +86,12 @@ export default function DataTable<T extends Record<string, any>>({
     if (savedOrder) {
       try {
         const parsed = JSON.parse(savedOrder);
-        if (Array.isArray(parsed) && parsed.length === columns.length) {
+        if (Array.isArray(parsed) && parsed.length === validColumns.length) {
           setColOrder(parsed);
         }
       } catch {}
     }
-  }, [columns.length]);
+  }, [validColumns.length]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -256,7 +278,7 @@ export default function DataTable<T extends Record<string, any>>({
         <thead>
           <tr style={{ background: "#f3f4f6" }}>
             {colOrder.map((colIdx, idx) => {
-              const col = columns[colIdx];
+              const col = validColumns[colIdx];
               const isLast = idx === colOrder.length - 1;
               return (
                 <th
@@ -354,7 +376,7 @@ export default function DataTable<T extends Record<string, any>>({
           {sortedData.map((row, i) => (
             <tr key={i} style={{ borderBottom: "1px solid #f0f0f0" }}>
               {colOrder.map((colIdx) => {
-                const col = columns[colIdx];
+                const col = validColumns[colIdx];
                 const value = row[col.key];
                 return (
                   <td
