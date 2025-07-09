@@ -9,12 +9,12 @@ function getType(val: any): string {
 
 // Color map for types
 const typeColors: Record<string, string> = {
-  string: "#228B22", // green
-  number: "#1E40AF", // blue
-  boolean: "#B45309", // orange
-  null: "#6B7280", // gray
-  array: "#6366F1", // purple
-  object: "#0D9488", // teal
+  string: "#228B22",
+  number: "#1E40AF",
+  boolean: "#B45309",
+  null: "#6B7280",
+  array: "#6366F1",
+  object: "#0D9488",
 };
 
 // Icon for expand/collapse
@@ -35,11 +35,8 @@ const Arrow = ({ open }: { open: boolean }) => (
 
 interface JsonTreeViewerProps {
   data: any;
-  rootLabel?: string;
-  selectedPaths?: string[];
-  onSelectionChange?: (
-    selected: { path: string; value: any; type: string }[]
-  ) => void;
+  selectedPaths: string[];
+  onPathSelect: (path: string) => void;
 }
 
 function JsonNode({
@@ -49,7 +46,7 @@ function JsonNode({
   defaultOpen = false,
   path = "",
   selectedPaths = [],
-  onToggleSelect,
+  onPathSelect,
 }: {
   value: any;
   label?: string;
@@ -57,7 +54,7 @@ function JsonNode({
   defaultOpen?: boolean;
   path?: string;
   selectedPaths?: string[];
-  onToggleSelect?: (path: string, value: any, type: string) => void;
+  onPathSelect?: (path: string) => void;
 }) {
   const type = getType(value);
   const [open, setOpen] = useState(defaultOpen);
@@ -77,8 +74,8 @@ function JsonNode({
   // Selection logic for primitives
   const isSelected = isPrimitive && selectedPaths.includes(currentPath);
   const handleValueClick = () => {
-    if (isPrimitive && onToggleSelect) {
-      onToggleSelect(currentPath, value, type);
+    if (isPrimitive && onPathSelect) {
+      onPathSelect(currentPath);
     }
   };
 
@@ -115,7 +112,7 @@ function JsonNode({
                 depth={depth + 1}
                 path={currentPath}
                 selectedPaths={selectedPaths}
-                onToggleSelect={onToggleSelect}
+                onPathSelect={onPathSelect}
               />
             ))}
           </div>
@@ -154,7 +151,7 @@ function JsonNode({
                 depth={depth + 1}
                 path={currentPath}
                 selectedPaths={selectedPaths}
-                onToggleSelect={onToggleSelect}
+                onPathSelect={onPathSelect}
               />
             ))}
           </div>
@@ -202,59 +199,9 @@ function JsonNode({
 
 export default function JsonTreeViewer({
   data,
-  rootLabel,
-  selectedPaths: controlledSelectedPaths,
-  onSelectionChange,
+  selectedPaths,
+  onPathSelect,
 }: JsonTreeViewerProps) {
-  // Internal state for uncontrolled usage
-  const [selectedPaths, setSelectedPaths] = useState<string[]>(
-    controlledSelectedPaths || []
-  );
-
-  // Keep internal state in sync with controlled prop
-  React.useEffect(() => {
-    if (controlledSelectedPaths) setSelectedPaths(controlledSelectedPaths);
-  }, [controlledSelectedPaths]);
-
-  // Toggle selection for a primitive node
-  const handleToggleSelect = (path: string, value: any, type: string) => {
-    setSelectedPaths((prev) => {
-      const exists = prev.includes(path);
-      let next: string[];
-      if (exists) {
-        next = prev.filter((p) => p !== path);
-      } else {
-        next = [...prev, path];
-      }
-      if (onSelectionChange) {
-        // Build selected values array
-        const selected: { path: string; value: any; type: string }[] = [];
-        // Helper to traverse and collect selected values
-        function collectSelected(val: any, currPath: string) {
-          const t = getType(val);
-          if (next.includes(currPath)) {
-            selected.push({ path: currPath, value: val, type: t });
-          }
-          if (t === "object" && val !== null) {
-            Object.keys(val).forEach((k) =>
-              collectSelected(val[k], currPath ? `${currPath}.${k}` : k)
-            );
-          } else if (t === "array") {
-            val.forEach((item: any, idx: number) =>
-              collectSelected(
-                item,
-                currPath ? `${currPath}.${idx}` : String(idx)
-              )
-            );
-          }
-        }
-        collectSelected(data, rootLabel || "");
-        onSelectionChange(selected);
-      }
-      return next;
-    });
-  };
-
   return (
     <div
       style={{
@@ -265,15 +212,15 @@ export default function JsonTreeViewer({
         padding: 16,
         border: "1px solid #e5e7eb",
         overflowX: "auto",
+        height: "100%",
+        overflowY: "auto",
       }}
     >
       <JsonNode
         value={data}
-        label={rootLabel}
         defaultOpen={true}
-        path={rootLabel || ""}
         selectedPaths={selectedPaths}
-        onToggleSelect={handleToggleSelect}
+        onPathSelect={onPathSelect}
       />
     </div>
   );
